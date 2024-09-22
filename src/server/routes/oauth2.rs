@@ -1,14 +1,18 @@
-use crate::database::Database;
+use crate::database::models::user::User;
+use crate::server::middlewares::auth::Claims;
 use axum::extract::Query;
-use axum::response::Redirect;
+use axum::response::{IntoResponse, Redirect, Response};
 use axum::response::Result;
 use axum::routing::get;
-use axum::{Extension, Router};
+use axum::{Extension, Json, Router};
 use http::StatusCode;
+use jsonwebtoken::{EncodingKey, Header};
 use oauth2::basic::BasicClient;
 use oauth2::reqwest::async_http_client;
 use oauth2::{AuthorizationCode, TokenResponse};
 use serde::Deserialize;
+use serde_json::json;
+use sqlx::PgPool;
 use tracing::error;
 
 pub fn new_router(oauth2_client: BasicClient) -> Router {
@@ -28,6 +32,7 @@ async fn authorize(Extension(oauth2_client): Extension<BasicClient>) -> Redirect
     Redirect::temporary(&url)
 }
 
+
 #[derive(Deserialize)]
 struct Callback {
     code: String,
@@ -36,8 +41,8 @@ struct Callback {
 async fn callback(
     Query(callback): Query<Callback>,
     Extension(oauth2_client): Extension<BasicClient>,
-    Extension(_): Extension<Database>,
-) -> Result<(), StatusCode> {
+    Extension(pg_pool): Extension<PgPool>,
+) -> Result<Response, StatusCode> {
     let token = oauth2_client
         .exchange_code(AuthorizationCode::new(callback.code))
         .request_async(async_http_client)
@@ -53,7 +58,32 @@ async fn callback(
         .inspect_err(|error| error!(?error))
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    dbg!(user);
+    let user = match &user.email {
+        None => {
+            let body = json!({
+                "error": "The discord account doesn't have an email address linked to it."
+            });
 
-    Ok(())
+            return Ok((StatusCode::INTERNAL_SERVER_ERROR, Json(body)).into_response());
+        }
+        Some(email) => {
+            User::register_or_login(pg_pool, email).await
+                .inspect_err(|error| error!(?error))
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        }
+    };
+
+    let claims = Claims {
+        user_id: user.id,
+        exp: u32::MAX as usize,
+    };
+
+    // TODO Replace the secret.
+    let jwt_encoding_key = EncodingKey::from_secret("1browser".as_bytes());
+
+    let token = jsonwebtoken::encode(&Header::default(), &claims, &jwt_encoding_key)
+        .inspect_err(|error| error!(?error))
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Redirect::temporary(&format!("https://app.1browser.one/signin/discord?token={}", token)).into_response())
 }

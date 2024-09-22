@@ -1,19 +1,20 @@
-use crate::database::Database;
 use anyhow::anyhow;
 use axum::Router;
 use oauth2::basic::BasicClient;
+use sqlx::PgPool;
 use tokio::net::TcpListener;
 
 mod routes;
+pub mod middlewares;
 
 pub struct Server {
     router: Router,
 }
 
 impl Server {
-    pub fn new(database: Database, oauth2_client: BasicClient) -> Self {
+    pub fn new(pg_pool: PgPool, oauth2_client: BasicClient) -> Self {
         Self {
-            router: routes::new(database, oauth2_client),
+            router: routes::new(pg_pool, oauth2_client),
         }
     }
 

@@ -1,8 +1,8 @@
-use crate::database::Database;
 use crate::server::Server;
 use clap::Parser;
 use oauth2::basic::BasicClient;
 use oauth2::{AuthUrl, ClientId, ClientSecret, RedirectUrl, TokenUrl};
+use sqlx::PgPool;
 
 mod database;
 mod server;
@@ -11,16 +11,20 @@ mod server;
 struct Args {
     #[arg(
         long = "database.url",
-        default_value = "postgres://postgres@localhost:5432/1browser"
+        default_value = "postgres://postgres@localhost:5432/1browser",
+        env = "1BROWSER_DATABASE_URL"
     )]
     database_url: String,
 
-    #[arg(long = "oauth2.client-id")]
+    #[arg(long = "oauth2.client-id",  env = "1BROWSER_OAUTH2_CLIENT_ID")]
     oauth2_client_id: String,
-    #[arg(long = "oauth2.secret")]
+    #[arg(long = "oauth2.secret", env = "1BROWSER_OAUTH2_CLIENT_SECRET")]
     oauth2_client_secret: String,
-    #[arg(long = "oauth2.redirect-url")]
+    #[arg(long = "oauth2.redirect-url", env = "1BROWSER_OAUTH2_REDIRECT_URI")]
     oauth2_redirect_uri: String,
+
+    #[arg(long = "jwt.secret", env = "1BROWSER_JWT_SECRET")]
+    jwt_secret: String,
 }
 
 #[tokio::main]
@@ -29,11 +33,14 @@ async fn main() -> anyhow::Result<()> {
 
     let args = Args::try_parse()?;
 
-    let database = {
-        let database = Database::connect(&args.database_url).await?;
-        database.migrate().await?;
+    let pg_pool = {
+        let pg_pool = PgPool::connect(&args.database_url).await?;
 
-        database
+        sqlx::migrate!("src/database/migrations")
+            .run(&pg_pool)
+            .await?;
+
+        pg_pool
     };
 
     let oauth2_client = BasicClient::new(
@@ -44,7 +51,7 @@ async fn main() -> anyhow::Result<()> {
             "https://discord.com/api/oauth2/token".to_string(),
         )?),
     )
-    .set_redirect_uri(RedirectUrl::new(args.oauth2_redirect_uri)?);
+        .set_redirect_uri(RedirectUrl::new(args.oauth2_redirect_uri)?);
 
-    Server::new(database, oauth2_client).serve().await
+    Server::new(pg_pool, oauth2_client).serve().await
 }
