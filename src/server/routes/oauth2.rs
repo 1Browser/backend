@@ -12,6 +12,7 @@ use oauth2::reqwest::async_http_client;
 use oauth2::{AuthorizationCode, TokenResponse};
 use serde::Deserialize;
 use serde_json::json;
+use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use tracing::error;
 
@@ -67,7 +68,24 @@ async fn callback(
             return Ok((StatusCode::INTERNAL_SERVER_ERROR, Json(body)).into_response());
         }
         Some(email) => {
-            User::register_or_login(pg_pool, email).await
+            let avatar = match user.avatar {
+                None => {
+                    let hash = {
+                        let mut hasher = Sha256::new();
+                        hasher.update(email.as_bytes());
+
+                        format!("{:x}", hasher.finalize())
+                    };
+
+                    format!("https://gravatar.com/avatar/{}?d=retro", hash)
+                }
+                Some(image_hash) => format!("https://cdn.discordapp.com/avatars/{}/{}.png", user.id, image_hash)
+            };
+
+            dbg!(&avatar);
+
+            User::register_or_login(pg_pool, email, &avatar)
+                .await
                 .inspect_err(|error| error!(?error))
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         }

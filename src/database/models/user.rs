@@ -11,11 +11,12 @@ pub struct User {
 }
 
 impl User {
-    pub async fn register_or_login(pg_pool: PgPool, email: &str) -> sqlx::Result<Self> {
+    pub async fn register_or_login(pg_pool: PgPool, email: &str, avatar: &str) -> sqlx::Result<Self> {
         let user: User = sqlx::query_as(
-            "INSERT INTO users (email) VALUES ($1) ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email RETURNING *;"
+            "INSERT INTO users (email, avatar) VALUES ($1, $2) ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email RETURNING *;"
         )
             .bind(email)
+            .bind(avatar)
             .fetch_one(&pg_pool)
             .await?;
 
