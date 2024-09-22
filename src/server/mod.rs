@@ -1,5 +1,6 @@
 use anyhow::anyhow;
 use axum::Router;
+use langchain_rust::llm::{OpenAI, OpenAIConfig};
 use oauth2::basic::BasicClient;
 use sqlx::PgPool;
 use tokio::net::TcpListener;
@@ -12,9 +13,9 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new(pg_pool: PgPool, oauth2_client: BasicClient) -> Self {
+    pub fn new(pg_pool: PgPool, openai: OpenAI<OpenAIConfig>, oauth2_client: BasicClient) -> Self {
         Self {
-            router: routes::new(pg_pool, oauth2_client),
+            router: routes::new(pg_pool, openai, oauth2_client),
         }
     }
 

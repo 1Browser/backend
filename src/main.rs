@@ -1,5 +1,6 @@
 use crate::server::Server;
 use clap::Parser;
+use langchain_rust::llm::{OpenAI, OpenAIConfig};
 use oauth2::basic::BasicClient;
 use oauth2::{AuthUrl, ClientId, ClientSecret, RedirectUrl, TokenUrl};
 use sqlx::PgPool;
@@ -16,12 +17,15 @@ struct Args {
     )]
     database_url: String,
 
-    #[arg(long = "oauth2.client-id",  env = "1BROWSER_OAUTH2_CLIENT_ID")]
+    #[arg(long = "oauth2.client-id", env = "1BROWSER_OAUTH2_CLIENT_ID")]
     oauth2_client_id: String,
     #[arg(long = "oauth2.secret", env = "1BROWSER_OAUTH2_CLIENT_SECRET")]
     oauth2_client_secret: String,
     #[arg(long = "oauth2.redirect-url", env = "1BROWSER_OAUTH2_REDIRECT_URI")]
     oauth2_redirect_uri: String,
+
+    #[arg(long = "openai.api-key", env = "1BROWSER_OPENAI_API_KEY")]
+    openai_api_key: String,
 
     #[arg(long = "jwt.secret", env = "1BROWSER_JWT_SECRET")]
     jwt_secret: String,
@@ -43,6 +47,14 @@ async fn main() -> anyhow::Result<()> {
         pg_pool
     };
 
+
+    let openai = {
+        let openai_config = OpenAIConfig::default()
+            .with_api_key(args.openai_api_key);
+
+        OpenAI::new(openai_config)
+    };
+
     let oauth2_client = BasicClient::new(
         ClientId::new(args.oauth2_client_id),
         Some(ClientSecret::new(args.oauth2_client_secret)),
@@ -53,5 +65,5 @@ async fn main() -> anyhow::Result<()> {
     )
         .set_redirect_uri(RedirectUrl::new(args.oauth2_redirect_uri)?);
 
-    Server::new(pg_pool, oauth2_client).serve().await
+    Server::new(pg_pool, openai, oauth2_client).serve().await
 }
