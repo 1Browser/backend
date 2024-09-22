@@ -33,7 +33,9 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt().init();
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::DEBUG) // Not ready for production.
+        .init();
 
     let args = Args::try_parse()?;
 
