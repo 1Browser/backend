@@ -11,6 +11,8 @@ use langchain_rust::schemas::Message;
 use serde::Deserialize;
 use tokio_stream::StreamExt as _;
 use tracing::error;
+use url::Url;
+use reqwest::get;
 
 pub fn new_router(openai: OpenAI<OpenAIConfig>) -> Router {
     Router::new()
@@ -23,7 +25,18 @@ pub struct SummaryRequest {
     content: String,
 }
 
-pub async fn summary(Extension(openai): Extension<OpenAI<OpenAIConfig>>, Json(request): Json<SummaryRequest>) -> Sse<impl Stream<Item=Result<Event, LLMError>>> {
+pub async fn summary(Extension(openai): Extension<OpenAI<OpenAIConfig>>, Json(mut request): Json<SummaryRequest>) -> Sse<impl Stream<Item=Result<Event, LLMError>>> {
+    if Url::parse(&request.content).is_ok() {
+        let response = get(&format!("https://r.jina.ai/{}", &request.content))
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap();
+
+        request.content = response;
+    }
+
     let messages = vec![
         Message::new_system_message(formatdoc! {
             r#"
@@ -32,7 +45,7 @@ pub async fn summary(Extension(openai): Extension<OpenAI<OpenAIConfig>>, Json(re
                 Use plain text without any special characters or formatting.
                 Avoid repeating the text verbatim.
                 Instead, synthesize the key ideas into a brief, coherent summary.
-                Also, ignore any links or descriptions of images in the text.
+                Also, ignore any URLs or descriptions of images in the text, especially those in markdown format.
                 Content to summarize:
 
                 {content}
