@@ -41,7 +41,7 @@ pub fn new_router(oauth2_client: BasicClient) -> Router {
     get,
     path = "/authorize",
     responses(
-        (status = 302, description = "Redirect to the Discord authorize page", body = Redirect),
+        (status = 302, description = "Redirect to the Discord authorize page"),
     )
 )]
 async fn authorize(Extension(oauth2_client): Extension<BasicClient>) -> Redirect {
@@ -67,7 +67,7 @@ struct Callback {
     get,
     path = "/callback",
     responses(
-        (status = 302, description = "Redirect to the application", body = Redirect),
+        (status = 302, description = "Redirect to the application"),
     )
 )]
 async fn callback(
