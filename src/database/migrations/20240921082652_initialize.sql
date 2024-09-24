@@ -7,3 +7,5 @@ CREATE TABLE users
     avatar     text        NOT NULL,
     created_at timestamptz NOT NULL DEFAULT now()
 );
+
+CREATE INDEX ON users (email);
