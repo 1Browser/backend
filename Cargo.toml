@@ -27,3 +27,4 @@ futures = "0.3.30"
 tokio-stream = "0.1.16"
 url = "2"
 reqwest = "0.11.27"
+utoipa = { version = "5.0.0-beta.0", features = ["chrono", "uuid"]}

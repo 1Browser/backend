@@ -15,6 +15,17 @@ use serde_json::json;
 use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use tracing::error;
+use utoipa::OpenApi;
+
+#[derive(OpenApi)]
+#[openapi(
+    paths(
+        authorize,
+        callback,
+    ),
+    components(schemas(User)),
+)]
+pub(super) struct Oauth2Api;
 
 pub fn new_router(oauth2_client: BasicClient) -> Router {
     Router::new()
@@ -23,6 +34,16 @@ pub fn new_router(oauth2_client: BasicClient) -> Router {
         .layer(Extension(oauth2_client))
 }
 
+/// Authorize with Discord
+/// 
+/// Redirect to the Discord authorize page.
+#[utoipa::path(
+    get,
+    path = "/authorize",
+    responses(
+        (status = 302, description = "Redirect to the Discord authorize page", body = Redirect),
+    )
+)]
 async fn authorize(Extension(oauth2_client): Extension<BasicClient>) -> Redirect {
     let url = format!(
         "https://discord.com/oauth2/authorize?client_id={}&response_type=code&redirect_uri={}&scope=identify+email",
@@ -39,6 +60,16 @@ struct Callback {
     code: String,
 }
 
+/// Callback from Discord
+/// 
+/// Callback from Discord after the user has authorized the application.
+#[utoipa::path(
+    get,
+    path = "/callback",
+    responses(
+        (status = 302, description = "Redirect to the application", body = Redirect),
+    )
+)]
 async fn callback(
     Query(callback): Query<Callback>,
     Extension(oauth2_client): Extension<BasicClient>,
