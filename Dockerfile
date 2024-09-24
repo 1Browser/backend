@@ -8,6 +8,8 @@ RUN cargo install --path .
 
 FROM debian:bookworm
 
+RUN apt-get update && apt install -y openssl
+
 COPY --from=builder /usr/local/cargo/bin/onebrowser /usr/local/bin/onebrowser
 
 ENTRYPOINT ["onebrowser"]
