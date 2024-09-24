@@ -8,7 +8,7 @@ RUN cargo install --path .
 
 FROM debian:bookworm
 
-RUN apt-get update && apt install -y openssl
+RUN apt-get update && apt install -y openssl ca-certificates
 
 COPY --from=builder /usr/local/cargo/bin/onebrowser /usr/local/bin/onebrowser
 
