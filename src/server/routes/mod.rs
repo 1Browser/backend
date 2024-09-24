@@ -32,7 +32,7 @@ pub fn new(pg_pool: PgPool, openai: OpenAI<OpenAIConfig>, oauth2_client: BasicCl
     struct ApiDoc;
 
     Router::new()
-        .route("openapi.json", get(|| async { Json(ApiDoc::openapi()) }))
+        .route("/openapi.json", get(|| async { Json(ApiDoc::openapi()) }))
         .nest("/oauth2", oauth2::new_router(oauth2_client))
         .nest("/users", user::new_router())
         .nest("/summary", summary::new_router(openai))
